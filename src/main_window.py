@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog, QApplication
 from PySide6.QtCore import Qt, QDir, Signal, QSize
 from PySide6.QtGui import QIcon
 from PySide6.QtMultimedia import QMediaPlayer
@@ -6,11 +6,69 @@ from file_system_manager import AudioFilterModel, is_supported_audio, AudioFileS
 from audio_player import AudioPlayer
 from waveform_widget import WaveformWidget
 from waveform_generator import WaveformGenerator
+from drag_drop import start_file_drag
 from pathlib import Path
+
 
 # Keyboard navigation
 class AudioTreeView(QTreeView):
     space_pressed = Signal(object)
+    drag_request = Signal(object)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setDragEnabled(True)
+        self.setAcceptDrops(False)
+        self.drag_start_position = None
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.drag_start_position = event.position().toPoint()
+
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if not (event.buttons() & Qt.LeftButton):
+            super().mouseMoveEvent(event)
+            return
+
+        drag_distance = QApplication.startDragDistance()
+
+        distance = (
+            event.position().toPoint() - self.drag_start_position
+        ).manhattanLength()
+
+        if distance < drag_distance:
+            super().mouseMoveEvent(event)
+            return
+
+        index = self.indexAt(event.position().toPoint())
+
+        if not index.isValid():
+            super().mouseMoveEvent(event)
+            return
+
+        source_index = self.model().mapToSource(index)
+        source_model = self.model().sourceModel()
+
+        if source_model.isDir(source_index):
+            super().mouseMoveEvent(event)
+            return
+
+        file_path = self.get_file_path(index)
+
+        if file_path is not None:
+            self.drag_request.emit(file_path)
+
+    def get_file_path(self, index):
+        source_index = self.model().mapToSource(index)
+        source_model = self.model().sourceModel()
+
+        if source_model.isDir(source_index):
+            return None
+
+        return Path(source_model.filePath(source_index))
 
     def keyPressEvent(self, event):
 
@@ -144,6 +202,11 @@ class MainWindow(QMainWindow):
         if self.current_file is not None:
             self.audio_player.toggle_playback()
 
+    def file_drag_requested(self, file_path):
+        self.audio_player.release_source()
+        self.waveform_generator.release_source()
+        start_file_drag(self.file_tree, file_path)
+
     def choose_folder(self):
         folder = QFileDialog.getExistingDirectory(
             self,
@@ -226,6 +289,7 @@ class MainWindow(QMainWindow):
     def waveform_ready(self, waveform):
         self.waveform_widget.set_waveform(waveform)
 
+
     def create_ui(self):
 
         self.icons_path = Path(__file__).resolve().parent.parent / "assets" / "icons"
@@ -258,6 +322,7 @@ class MainWindow(QMainWindow):
         search_bar_container.setObjectName("search_bar_container")
         self.file_tree = AudioTreeView()
         self.file_tree.space_pressed.connect(self.space_pressed)
+        self.file_tree.drag_request.connect(self.file_drag_requested)
 
         self.file_model = AudioFileSystemModel()
         self.audio_filter_model = AudioFilterModel()
