@@ -1,5 +1,5 @@
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
-from PySide6.QtCore import QObject
+from PySide6.QtCore import QObject, QUrl
 
 class AudioPlayer(QObject):
     def __init__(self):
@@ -17,6 +17,10 @@ class AudioPlayer(QObject):
 
     def stop(self):
         self.player.stop()
+
+    def release_source(self):
+        self.player.stop()
+        self.player.setSource(QUrl())
 
     def toggle_playback(self):
         state = self.player.playbackState()

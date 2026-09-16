@@ -118,3 +118,8 @@ class WaveformGenerator(QObject):
         waveform = self.downsample(self.samples)
 
         self.waveform_ready.emit(waveform)
+
+    def release_source(self):
+        self.decoder.stop()
+        self.decoder.setSource(QUrl())
+        self.samples.clear()
