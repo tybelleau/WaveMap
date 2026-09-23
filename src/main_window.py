@@ -214,6 +214,7 @@ class MainWindow(QMainWindow):
         )
         if folder:
             self.current_root_folder = folder
+            self.audio_filter_model.set_search_root(folder)
             source_index = self.file_model.setRootPath(folder)
             proxy_index = self.audio_filter_model.mapFromSource(source_index)
             self.file_tree.setRootIndex(proxy_index)
@@ -224,6 +225,61 @@ class MainWindow(QMainWindow):
                     padding-left: 6px;
                 }
             """)
+
+    def search_changed(self, text):
+        text = text.strip()
+
+        if self.current_root_folder:
+            source_index = self.file_model.index(
+                self.current_root_folder
+            )
+
+            proxy_index = self.audio_filter_model.mapFromSource(
+                source_index
+            )
+
+            self.file_tree.setRootIndex(proxy_index)
+
+        self.audio_filter_model.set_search_text(text)
+
+        # empty search = normal browsing mode.
+        if not text:
+            self.file_tree.collapseAll()
+            return
+
+        # keep tree rooted at selected library
+        if self.current_root_folder:
+            source_index = self.file_model.index(
+                self.current_root_folder
+            )
+
+            proxy_index = self.audio_filter_model.mapFromSource(
+                source_index
+            )
+
+            self.file_tree.setRootIndex(proxy_index)
+
+        # expand paths containing matches
+        self.expand_search_results()
+
+    def expand_search_results(self):
+        root_index = self.file_tree.rootIndex()
+
+        def expand_children(parent_index):
+            for row in range(
+                self.audio_filter_model.rowCount(parent_index)
+            ):
+                index = self.audio_filter_model.index(
+                    row,
+                    0,
+                    parent_index
+                )
+
+                if self.audio_filter_model.hasChildren(index):
+                    self.file_tree.expand(index)
+                    expand_children(index)
+
+        expand_children(root_index)
 
     def file_selected(self, current_index, previous_index):
         self.current_index = current_index
@@ -357,6 +413,8 @@ class MainWindow(QMainWindow):
         self.search_bar.setObjectName("search_bar")
 
         search_bar_container_layout.addWidget(self.search_bar)
+
+        self.search_bar.textChanged.connect(self.search_changed)
 
 
         # file section header layout

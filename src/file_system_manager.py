@@ -54,6 +54,23 @@ class AudioFileSystemModel(QFileSystemModel):
         return super().data(index, role)
 
 class AudioFilterModel(QSortFilterProxyModel):
+    def __init__(self):
+        super().__init__()
+
+        self.search_text = ""
+        self.search_root = None
+
+        # Keep parent folders visible when a child matches.
+        self.setRecursiveFilteringEnabled(True)
+
+    def set_search_text(self, text):
+        self.search_text = text.lower().strip()
+        self.invalidateFilter()
+
+    def set_search_root(self, folder_path):
+        self.search_root = Path(folder_path)
+        self.invalidateFilter()
+
     def filterAcceptsRow(self, source_row, source_parent):
         source_model = self.sourceModel()
 
@@ -65,10 +82,28 @@ class AudioFilterModel(QSortFilterProxyModel):
 
         path = Path(source_model.filePath(index))
 
+        # Never filter out the selected library root.
+        if self.search_root and path == self.search_root:
+            return True
+
+        # Reject anything outside the selected library.
+        if self.search_root:
+            try:
+                path.relative_to(self.search_root)
+            except ValueError:
+                return False
+
         if path.is_file():
-            return is_supported_audio(path)
+            if not is_supported_audio(path):
+                return False
 
-        if path.is_dir():
-            return folder_contains_audio(path)
+        elif path.is_dir():
+            pass
 
-        return False
+        else:
+            return False
+
+        if not self.search_text:
+            return True
+
+        return self.search_text in path.name.lower()
