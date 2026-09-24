@@ -1,8 +1,8 @@
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog, QApplication
-from PySide6.QtCore import Qt, QDir, Signal, QSize
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog, QApplication, QComboBox
+from PySide6.QtCore import Qt, QDir, Signal, QSize, QSettings, QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtMultimedia import QMediaPlayer
-from file_system_manager import AudioFilterModel, is_supported_audio, AudioFileSystemModel
+from file_system_manager import AudioFilterModel, is_supported_audio, AudioFileSystemModel, AudioSearchIndex
 from audio_player import AudioPlayer
 from waveform_widget import WaveformWidget
 from waveform_generator import WaveformGenerator
@@ -170,6 +170,13 @@ class MainWindow(QMainWindow):
         self.current_root_folder = None
         self.current_file = None
         self.current_index = None
+        self.search_index = AudioSearchIndex()
+        self.settings = QSettings("WaveMap", "WaveMap")
+
+        self.search_timer = QTimer(self)
+        self.search_timer.setSingleShot(True)
+        self.search_timer.setInterval(120)
+        self.search_timer.timeout.connect(self.perform_search)
 
         self.audio_player = AudioPlayer()
         self.waveform_generator = WaveformGenerator()
@@ -214,6 +221,8 @@ class MainWindow(QMainWindow):
         )
         if folder:
             self.current_root_folder = folder
+            self.search_index.build(folder)
+            self.audio_filter_model.set_search_root(folder)
             source_index = self.file_model.setRootPath(folder)
             proxy_index = self.audio_filter_model.mapFromSource(source_index)
             self.file_tree.setRootIndex(proxy_index)
@@ -224,6 +233,66 @@ class MainWindow(QMainWindow):
                     padding-left: 6px;
                 }
             """)
+
+    def search_changed(self, text):
+        self.search_text = text.strip()
+
+        self.search_timer.start()
+
+    def perform_search(self):
+        text = self.search_text
+
+        if self.current_root_folder:
+            source_index = self.file_model.index(
+                self.current_root_folder
+            )
+
+            proxy_index = self.audio_filter_model.mapFromSource(
+                source_index
+            )
+
+            self.file_tree.setRootIndex(proxy_index)
+
+        self.audio_filter_model.set_search_text(text)
+
+        # empty search = normal browsing mode.
+        if not text:
+            self.file_tree.collapseAll()
+            return
+
+        # keep tree rooted at selected library
+        if self.current_root_folder:
+            source_index = self.file_model.index(
+                self.current_root_folder
+            )
+
+            proxy_index = self.audio_filter_model.mapFromSource(
+                source_index
+            )
+
+            self.file_tree.setRootIndex(proxy_index)
+
+        # expand paths containing matches
+        self.expand_search_results()
+
+    def expand_search_results(self):
+        root_index = self.file_tree.rootIndex()
+
+        def expand_children(parent_index):
+            for row in range(
+                self.audio_filter_model.rowCount(parent_index)
+            ):
+                index = self.audio_filter_model.index(
+                    row,
+                    0,
+                    parent_index
+                )
+
+                if self.audio_filter_model.hasChildren(index):
+                    self.file_tree.expand(index)
+                    expand_children(index)
+
+        expand_children(root_index)
 
     def file_selected(self, current_index, previous_index):
         self.current_index = current_index
@@ -289,6 +358,53 @@ class MainWindow(QMainWindow):
     def waveform_ready(self, waveform):
         self.waveform_widget.set_waveform(waveform)
 
+    def load_recent_searches(self):
+        searches = self.settings.value(
+            "recent_searches",
+            [],
+            type=list
+        )
+
+        self.search_bar.clear()
+
+        for search in searches:
+            self.search_bar.addItem(search)
+
+        # sets search bar to blank upon reopen
+        self.search_bar.setCurrentIndex(-1)
+        self.search_bar.setEditText("")
+
+    def save_current_search(self):
+        search = self.search_bar.currentText().strip()
+
+        if not search:
+            return
+
+        searches = self.settings.value(
+            "recent_searches",
+            [],
+            type=list
+        )
+
+        if search in searches:
+            searches.remove(search)
+
+        searches.insert(0, search)
+
+        searches = searches[:10]
+
+        self.settings.setValue(
+            "recent_searches",
+            searches
+        )
+
+        self.search_bar.clear()
+
+        for item in searches:
+            self.search_bar.addItem(item)
+
+        self.search_bar.setCurrentText(search)
+
 
     def create_ui(self):
 
@@ -327,6 +443,7 @@ class MainWindow(QMainWindow):
         self.file_model = AudioFileSystemModel()
         self.audio_filter_model = AudioFilterModel()
         self.audio_filter_model.setSourceModel(self.file_model)
+        self.audio_filter_model.set_search_index(self.search_index)
         self.file_model.setRootPath("")
         self.file_tree.setModel(self.audio_filter_model)
         self.file_tree.header().hide()
@@ -352,11 +469,16 @@ class MainWindow(QMainWindow):
         search_bar_container_layout = QVBoxLayout()
         search_bar_container.setLayout(search_bar_container_layout)
 
-        self.search_bar = QLineEdit()
-        self.search_bar.setPlaceholderText("Search...")
+        self.search_bar = QComboBox()
         self.search_bar.setObjectName("search_bar")
+        self.search_bar.setEditable(True)
+        self.search_bar.setInsertPolicy(QComboBox.NoInsert)
 
         search_bar_container_layout.addWidget(self.search_bar)
+
+        self.search_bar.lineEdit().textChanged.connect(self.search_changed)
+        self.load_recent_searches()
+        self.search_bar.lineEdit().returnPressed.connect(self.save_current_search)
 
 
         # file section header layout

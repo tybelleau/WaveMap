@@ -78,6 +78,7 @@ QPushButton#tool_buttons:pressed {
 
 QPushButton#tool_buttons:checked {
     background-color: #7ebcc4;
+    color: #1b1b1b;
 }
 
 
