@@ -32,6 +32,33 @@ def get_audio_files(folder_path):
 
     return sorted(audio_files)
 
+class AudioSearchIndex:
+    def __init__(self):
+        self.root_folder = None
+        self.audio_files = []
+
+    def build(self, folder_path):
+        self.root_folder = Path(folder_path)
+        self.audio_files = get_audio_files(self.root_folder)
+
+    def search(self, text):
+        text = text.lower().strip()
+
+        if not text:
+            return set(self.audio_files)
+
+        return {
+            path
+            for path in self.audio_files
+            if text in path.name.lower()
+        }
+
+    def clear(self):
+        self.root_folder = None
+        self.audio_files = []
+
+    
+
 class AudioFileSystemModel(QFileSystemModel):
     def __init__(self):
         super().__init__()
@@ -59,12 +86,26 @@ class AudioFilterModel(QSortFilterProxyModel):
 
         self.search_text = ""
         self.search_root = None
+        self.search_index = None
+        self.matching_files = set()
 
         # Keep parent folders visible when a child matches.
         self.setRecursiveFilteringEnabled(True)
 
     def set_search_text(self, text):
         self.search_text = text.lower().strip()
+
+        if self.search_index:
+            self.matching_files = self.search_index.search(
+                self.search_text
+            )
+        else:
+            self.matching_files = set()
+
+        self.invalidateFilter()
+
+    def set_search_index(self, search_index):
+        self.search_index = search_index
         self.invalidateFilter()
 
     def set_search_root(self, folder_path):
@@ -106,4 +147,13 @@ class AudioFilterModel(QSortFilterProxyModel):
         if not self.search_text:
             return True
 
-        return self.search_text in path.name.lower()
+        if path.is_file():
+            return path in self.matching_files
+
+        if path.is_dir():
+            return any(
+                match_path.is_relative_to(path)
+                for match_path in self.matching_files
+            )
+
+        return False
