@@ -10,6 +10,9 @@ QWidget#central_widget {
     background-color: #1b1b1b;
 }
 
+
+/* File Tree Section */
+
 QWidget#file_section {
     background-color: #2B2B2B;
     border-radius: 4px;
@@ -64,6 +67,8 @@ QTreeView::item:selected {
 }
 
 
+/* Tool Buttons */
+
 QPushButton#tool_buttons {
     background-color: transparent;
 }
@@ -82,11 +87,55 @@ QPushButton#tool_buttons:checked {
 }
 
 
+/* Metadata Panel */
+
 QFrame#metadata_panel {
     background-color: #2B2B2B;
     border-radius: 4px;
 }
 
+
+/* Filter Panel */
+
+QFrame#filter_panel {
+    background-color: #1B1B1B;
+    border-color: #3C3C3C;
+    border-radius: 4px;
+}
+
+QCheckBox#filter_checkbox::indicator {
+    width: 15px;
+    height: 15px;
+    margin: 1px 0px;
+    border: 1px solid #3C3C3C;
+    border-radius: 4px;
+    background: transparent;
+}
+
+QCheckBox#filter_checkbox::indicator:hover {
+    background-color: #3C3C3C;
+}
+
+QCheckBox#filter_checkbox::indicator:checked {
+    background-color: #7ebcc4;
+    border: 1px solid #3C3C3C;
+}
+
+QFrame#filter_separator {
+    background-color: #3C3C3C;
+}
+
+QPushButton#filter_clear_button {
+    border-color: #3C3C3C;
+    background-color: transparent;
+}
+
+QPushButton#filter_clear_button:hover {
+    background-color: #3C3C3C;
+}
+
+
+/* Progress Bar */
 
 QPushButton#progress_buttons {
     background: transparent;

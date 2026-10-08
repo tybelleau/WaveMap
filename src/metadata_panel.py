@@ -23,7 +23,7 @@ class MetadataPanel(QFrame):
 
         self.field_labels = {}
 
-        for row, name in enumerate(("Type", "Size", "Duration", "Sample Rate", "Channels", "Bit Rate",)):
+        for row, name in enumerate(("Type", "Size", "Duration", "Sample Rate", "Bit Rate" , "Channels")):
             name_label = QLabel(name)
             name_label.setObjectName("metadata_key")
 
@@ -44,7 +44,7 @@ class MetadataPanel(QFrame):
         )
         self.field_labels["Size"].setText(self.format_size(path))
 
-        for name in ("Duration", "Sample Rate", "Channels", "Bit Rate"):
+        for name in ("Duration", "Sample Rate", "Bit Rate", "Channels"):
             self.field_labels[name].setText("-")
 
     def clear(self):
