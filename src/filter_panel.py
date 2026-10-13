@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QPushButton, QGridLayout
 from PySide6.QtGui import QIcon
+from pathlib import Path
 
 class FilterButton(QPushButton):
     def __init__(self, icon_path, parent=None):
@@ -95,6 +96,10 @@ class FilterPanel(QFrame):
 
         self.setObjectName("filter_panel")
         self.setWindowFlags(Qt.Popup)
+        self.setAttribute(Qt.WA_StyledBackground, True)
+
+        # sets the path to the checkmark icon
+        self.check_icon = (Path(__file__).resolve().parent.parent / "assets" / "icons" / "checkmark_icon.svg").as_posix()
 
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(15, 12, 15, 12)
@@ -156,6 +161,13 @@ class FilterPanel(QFrame):
 
         for index, (name, value) in enumerate(options.items()):
             checkbox = QCheckBox(name)
+            checkbox.setObjectName("filter_checkbox")
+            # sets the svg url to the checked state of the checkbox
+            checkbox.setStyleSheet(
+                "QCheckBox#filter_checkbox::indicator:checked {"
+                f' image: url("{self.check_icon}");'
+                "}"
+            )
 
             checkbox.toggled.connect(
                 self.emit_filters_changed
@@ -170,8 +182,9 @@ class FilterPanel(QFrame):
 
     def create_separator(self):
         separator = QFrame()
-        separator.setFrameShape(QFrame.HLine)
-        separator.setFrameShadow(QFrame.Sunken)
+        separator.setFrameShape(QFrame.NoFrame)
+        separator.setFixedHeight(1)
+        separator.setObjectName("filter_separator")
 
         self.layout.addWidget(separator)
 
@@ -209,6 +222,7 @@ class FilterPanel(QFrame):
 
     def create_clear_button(self):
         self.clear_button = QPushButton("Clear Filters")
+        self.clear_button.setObjectName("filter_clear_button")
         self.clear_button.clicked.connect(
             self.clear_filters
         )
