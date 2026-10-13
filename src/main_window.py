@@ -1,7 +1,11 @@
+from pathlib import Path
+import shutil
+
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog, QApplication, QComboBox
 from PySide6.QtCore import Qt, QDir, Signal, QSize, QSettings, QTimer, QEvent, QPoint, QRect
 from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtMultimedia import QMediaPlayer, QMediaMetaData
+
 from file_system_manager import AudioFilterModel, is_supported_audio, AudioFileSystemModel, AudioSearchIndex
 from audio_player import AudioPlayer
 from waveform_widget import WaveformWidget
@@ -12,8 +16,6 @@ from favorites_manager import FavoritesManager
 from metadata_panel import MetadataPanel
 from controls_panel import ControlsPanel
 from project_map_panel import ProjectMapPanel
-from pathlib import Path
-import shutil
 
 
 # Keyboard navigation
@@ -222,7 +224,6 @@ class MapButton(QPushButton):
             return
 
         self.badge.setText(str(count))
-        self.badge.adjustSize()
         self.badge.setMinimumSize(14, 14)
         self.apply_badge_style()
         self.update_badge_position()
@@ -230,9 +231,6 @@ class MapButton(QPushButton):
         self.badge.raise_()
 
     def apply_badge_style(self, _checked=False):
-        if self.badge.isHidden() and not self.badge.text():
-            return
-
         if self.isChecked():
             background = "#1b1b1b"
             color = "#7ebcc4"

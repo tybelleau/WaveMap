@@ -2,18 +2,8 @@ import os
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal, QSize, QEvent
-from PySide6.QtGui import QCursor, QFont, QIcon
-from PySide6.QtWidgets import (
-    QApplication,
-    QFrame,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QScrollArea,
-    QSizePolicy,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtGui import QCursor, QIcon
+from PySide6.QtWidgets import QApplication, QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 from file_system_manager import is_supported_audio
 
@@ -33,7 +23,6 @@ class MapRow(QWidget):
         self.trash_visible = False
         self.trash_icon = QIcon(str(trash_icon))
 
-        self.setFont(QFont("Sora", 9))
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setFixedHeight(self.fontMetrics().height() + 10)
@@ -51,7 +40,6 @@ class MapRow(QWidget):
         self.trash_button.clicked.connect(self.remove_clicked)
 
         self.name_label = QLabel(name)
-        self.name_label.setFont(QFont("Sora", 9))
         self.name_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self.name_label.setSizePolicy(
             QSizePolicy.Policy.Ignored,
