@@ -738,26 +738,6 @@ class MainWindow(QMainWindow):
 
         self.project_map_panel.setVisible(visible)
 
-    def eventFilter(self, watched, event):
-        if (
-            event.type() == QEvent.Type.MouseButtonPress
-            and self.controls_panel.isVisible()
-        ):
-            click = event.globalPosition().toPoint()
-            panel_rect = QRect(
-                self.controls_panel.mapToGlobal(QPoint(0, 0)),
-                self.controls_panel.size(),
-            )
-            button_rect = QRect(
-                self.controls_button.mapToGlobal(QPoint(0, 0)),
-                self.controls_button.size(),
-            )
-
-            if not panel_rect.contains(click) and not button_rect.contains(click):
-                self.controls_button.setChecked(False)
-
-        return super().eventFilter(watched, event)
-
     def create_ui(self):
 
         self.icons_path = Path(__file__).resolve().parent.parent / "assets" / "icons"
@@ -976,6 +956,3 @@ class MainWindow(QMainWindow):
 
         self.map_toggle_shortcut = QShortcut(QKeySequence("Ctrl+P"), self)
         self.map_toggle_shortcut.activated.connect(self.toggle_current_file_in_map)
-
-        # Click outside of controls panel to close it
-        QApplication.instance().installEventFilter(self)
