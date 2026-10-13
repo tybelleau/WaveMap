@@ -95,7 +95,7 @@ QFrame#metadata_panel {
 }
 
 
-/* Controls Panel */
+/* Controls & Map Panel */
 
 QFrame#controls_panel,
 QFrame#project_map_panel {
@@ -152,7 +152,7 @@ QScrollArea#map_scroll QScrollBar::sub-page:vertical {
 }
 
 
-/* Project Map */
+/* Project Map Panel*/
 
 QLabel#map_name,
 QLabel#map_name_missing {

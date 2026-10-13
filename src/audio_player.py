@@ -1,5 +1,7 @@
+from pathlib import Path
+
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
-from PySide6.QtCore import QObject, QUrl
+from PySide6.QtCore import QObject, QUrl, QTimer, Signal
 
 class AudioPlayer(QObject):
     def __init__(self):
@@ -40,3 +42,70 @@ class AudioPlayer(QObject):
 
     def seek(self, position):
         self.player.setPosition(position)
+
+
+class DurationReader(QObject):
+    duration_ready = Signal(str, int)
+
+    def __init__(self):
+        super().__init__()
+
+        self.player = QMediaPlayer()
+        self.files = []
+        self.index = 0
+        self.file_path = None
+
+        self.timer = QTimer(self)
+        self.timer.setSingleShot(True)
+        self.timer.setInterval(2000)
+        self.timer.timeout.connect(self.timed_out)
+
+        self.player.durationChanged.connect(self.duration_changed)
+        self.player.mediaStatusChanged.connect(self.media_status_changed)
+
+    def read_files(self, file_paths):
+        self.timer.stop()
+        self.files = list(file_paths)
+        self.index = 0
+        self.file_path = None
+        self.read_next()
+
+    def read_next(self):
+        if self.index >= len(self.files):
+            self.timer.stop()
+            self.file_path = None
+            self.player.setSource(QUrl())
+            return
+
+        self.file_path = str(self.files[self.index])
+        self.index += 1
+        self.player.setSource(QUrl.fromLocalFile(self.file_path))
+        self.timer.start()
+
+    def duration_changed(self, duration):
+        if duration <= 0 or self.file_path is None:
+            return
+
+        source = self.player.source().toLocalFile()
+
+        if Path(source) != Path(self.file_path):
+            return
+
+        self.finish_current(duration)
+
+    def media_status_changed(self, status):
+        if status == QMediaPlayer.MediaStatus.InvalidMedia:
+            self.finish_current(0)
+
+    def timed_out(self):
+        self.finish_current(0)
+
+    def finish_current(self, duration):
+        if self.file_path is None:
+            return
+
+        self.timer.stop()
+        path = self.file_path
+        self.file_path = None
+        self.duration_ready.emit(path, duration)
+        QTimer.singleShot(0, self.read_next)

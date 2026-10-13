@@ -7,7 +7,7 @@ from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtMultimedia import QMediaPlayer, QMediaMetaData
 
 from file_system_manager import AudioFilterModel, is_supported_audio, AudioFileSystemModel, AudioSearchIndex
-from audio_player import AudioPlayer
+from audio_player import AudioPlayer, DurationReader
 from waveform_widget import WaveformWidget
 from waveform_generator import WaveformGenerator
 from drag_drop import start_file_drag, start_files_drag
@@ -291,6 +291,7 @@ class MainWindow(QMainWindow):
 
         self.audio_player = AudioPlayer()
         self.waveform_generator = WaveformGenerator()
+        self.duration_reader = DurationReader()
 
         self.create_ui()
 
@@ -304,6 +305,7 @@ class MainWindow(QMainWindow):
         self.audio_player.player.metaDataChanged.connect(self.metadata_changed)
         self.waveform_generator.waveform_ready.connect(self.waveform_ready)
         self.waveform_generator.format_ready.connect(self.audio_format_ready)
+        self.duration_reader.duration_ready.connect(self.duration_loaded)
 
     def playback_state_changed(self, state):
         playing = state == QMediaPlayer.PlaybackState.PlayingState
@@ -408,6 +410,7 @@ class MainWindow(QMainWindow):
         if folder:
             self.current_root_folder = folder
             self.search_index.build(folder)
+            self.duration_reader.read_files(self.search_index.audio_files)
             self.audio_filter_model.set_search_root(folder)
             source_index = self.file_model.setRootPath(folder)
             proxy_index = self.audio_filter_model.mapFromSource(source_index)
@@ -561,6 +564,18 @@ class MainWindow(QMainWindow):
         if duration > 0:
             self.metadata_panel.set_value("Duration", self.format_time(duration))
 
+            if self.current_file:
+                self.audio_filter_model.set_duration(
+                    self.current_file,
+                    duration
+                )
+
+    def duration_loaded(self, file_path, duration_ms):
+        if duration_ms <= 0:
+            return
+        
+        self.audio_filter_model.set_duration(file_path, duration_ms)
+
     def audio_format_ready(self, sample_rate, channel_count):
         if sample_rate > 0:
             rate_text = f"{sample_rate} Hz"
@@ -677,6 +692,10 @@ class MainWindow(QMainWindow):
     def filters_changed(self, filters):
         self.audio_filter_model.set_file_types(
             filters["file_type"]
+        )
+
+        self.audio_filter_model.set_length_limits(
+            filters["length"]
         )
 
         favorites_only = bool(filters["favorites"])
