@@ -677,6 +677,9 @@ class MainWindow(QMainWindow):
         tool_section.setLayout(tool_section_layout)
 
         empty_space = QWidget()
+        self.compare_button = QPushButton("Compare")
+        self.compare_button.setObjectName("tool_buttons")
+        self.compare_button.setCheckable(True)
         self.metadata_button = QPushButton("Metadata")
         self.metadata_button.setObjectName("tool_buttons")
         self.metadata_button.setCheckable(True)
@@ -687,12 +690,19 @@ class MainWindow(QMainWindow):
         self.loop_button.setCheckable(True)
         self.loop_button.toggled.connect(self.audio_player.set_looping)
         self.file_tree.loop_pressed.connect(self.loop_button.toggle)
+        self.map_button = QPushButton("Map")
+        self.map_button.setObjectName("tool_buttons")
+        self.map_button.setCheckable(True)
+        
         self.options_button = QPushButton("Options")
         self.options_button.setObjectName("tool_buttons")
+        self.options_button.setCheckable(True)
 
         tool_section_layout.addWidget(empty_space, 8)
+        tool_section_layout.addWidget(self.compare_button, 1)
         tool_section_layout.addWidget(self.metadata_button, 1)
         tool_section_layout.addWidget(self.loop_button, 1)
+        tool_section_layout.addWidget(self.map_button, 1)
         tool_section_layout.addWidget(self.options_button, 1)
 
 
