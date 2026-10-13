@@ -97,7 +97,8 @@ QFrame#metadata_panel {
 
 /* Controls Panel */
 
-QFrame#controls_panel {
+QFrame#controls_panel,
+QFrame#project_map_panel {
     background-color: #2B2B2B;
     border-radius: 4px;
 }
@@ -112,37 +113,79 @@ QLabel#controls_description {
     color: #939393;
 }
 
-QLabel#controls_description {
-    color: #939393;
-}
-
 QScrollArea#controls_scroll,
 QWidget#controls_scroll_viewport,
-QWidget#controls_list {
+QWidget#controls_list,
+QScrollArea#map_scroll,
+QWidget#map_scroll_viewport,
+QWidget#map_list {
     background-color: #2B2B2B;
     border: none;
 }
 
-QScrollArea#controls_scroll QScrollBar:vertical {
+QScrollArea#controls_scroll QScrollBar:vertical,
+QScrollArea#map_scroll QScrollBar:vertical {
     background: transparent;
     width: 8px;
     margin: 0px;
 }
 
-QScrollArea#controls_scroll QScrollBar::handle:vertical {
+QScrollArea#controls_scroll QScrollBar::handle:vertical,
+QScrollArea#map_scroll QScrollBar::handle:vertical {
     background: #3C3C3C;
     border-radius: 4px;
     min-height: 24px;
 }
 
 QScrollArea#controls_scroll QScrollBar::add-line:vertical,
-QScrollArea#controls_scroll QScrollBar::sub-line:vertical {
+QScrollArea#controls_scroll QScrollBar::sub-line:vertical,
+QScrollArea#map_scroll QScrollBar::add-line:vertical,
+QScrollArea#map_scroll QScrollBar::sub-line:vertical {
     height: 0px;
 }
 
 QScrollArea#controls_scroll QScrollBar::add-page:vertical,
-QScrollArea#controls_scroll QScrollBar::sub-page:vertical {
+QScrollArea#controls_scroll QScrollBar::sub-page:vertical,
+QScrollArea#map_scroll QScrollBar::add-page:vertical,
+QScrollArea#map_scroll QScrollBar::sub-page:vertical {
     background: transparent;
+}
+
+
+/* Project Map */
+
+QLabel#map_name,
+QLabel#map_name_missing {
+    padding: 0px;
+    margin: 0px;
+}
+
+QLabel#map_name_missing {
+    color: #939393;
+}
+
+QPushButton#map_trash {
+    background-color: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 0px;
+}
+
+QPushButton#map_trash:hover {
+    background-color: #c44747;
+}
+
+QPushButton#map_action_button {
+    border-color: #3C3C3C;
+    background-color: transparent;
+}
+
+QPushButton#map_action_button:hover {
+    background-color: #3C3C3C;
+}
+
+QPushButton#map_action_button:pressed {
+    background-color: transparent;
 }
 
 
