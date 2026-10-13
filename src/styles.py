@@ -95,6 +95,57 @@ QFrame#metadata_panel {
 }
 
 
+/* Controls Panel */
+
+QFrame#controls_panel {
+    background-color: #2B2B2B;
+    border-radius: 4px;
+}
+
+QLabel#controls_key {
+    background-color: #3C3C3C;
+    border-radius: 4px;
+    padding: 4px 6px;
+}
+
+QLabel#controls_description {
+    color: #939393;
+}
+
+QLabel#controls_description {
+    color: #939393;
+}
+
+QScrollArea#controls_scroll,
+QWidget#controls_scroll_viewport,
+QWidget#controls_list {
+    background-color: #2B2B2B;
+    border: none;
+}
+
+QScrollArea#controls_scroll QScrollBar:vertical {
+    background: transparent;
+    width: 8px;
+    margin: 0px;
+}
+
+QScrollArea#controls_scroll QScrollBar::handle:vertical {
+    background: #3C3C3C;
+    border-radius: 4px;
+    min-height: 24px;
+}
+
+QScrollArea#controls_scroll QScrollBar::add-line:vertical,
+QScrollArea#controls_scroll QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollArea#controls_scroll QScrollBar::add-page:vertical,
+QScrollArea#controls_scroll QScrollBar::sub-page:vertical {
+    background: transparent;
+}
+
+
 /* Filter Panel */
 
 QFrame#filter_panel {

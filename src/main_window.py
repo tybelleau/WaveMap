@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog, QApplication, QComboBox
-from PySide6.QtCore import Qt, QDir, Signal, QSize, QSettings, QTimer
-from PySide6.QtGui import QIcon
+from PySide6.QtCore import Qt, QDir, Signal, QSize, QSettings, QTimer, QEvent, QPoint, QRect
+from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtMultimedia import QMediaPlayer, QMediaMetaData
 from file_system_manager import AudioFilterModel, is_supported_audio, AudioFileSystemModel, AudioSearchIndex
 from audio_player import AudioPlayer
@@ -10,6 +10,7 @@ from drag_drop import start_file_drag
 from filter_panel import FilterPanel, FilterButton
 from favorites_manager import FavoritesManager
 from metadata_panel import MetadataPanel
+from controls_panel import ControlsPanel
 from pathlib import Path
 
 
@@ -554,6 +555,54 @@ class MainWindow(QMainWindow):
     def update_filter_count(self, count):
         self.filter_button.set_filter_count(count)
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+
+        if hasattr(self, "controls_panel"):
+            self.position_controls_panel()
+
+    def position_controls_panel(self):
+        area = self.centralWidget().rect()
+        tool_bottom = self.tool_section.mapTo(
+            self.centralWidget(),
+            self.tool_section.rect().bottomLeft(),
+        ).y()
+
+        margin = 8
+        panel_width = int(area.width() / 3)
+        self.controls_panel.setGeometry(
+            area.width() - panel_width - margin,
+            tool_bottom,
+            panel_width,
+            area.height() - tool_bottom - margin,
+        )
+
+    def controls_toggled(self, visible):
+        if visible:
+            self.position_controls_panel()
+            self.controls_panel.raise_()
+
+        self.controls_panel.setVisible(visible)
+
+    def eventFilter(self, watched, event):
+        if (
+            event.type() == QEvent.Type.MouseButtonPress
+            and self.controls_panel.isVisible()
+        ):
+            click = event.globalPosition().toPoint()
+            panel_rect = QRect(
+                self.controls_panel.mapToGlobal(QPoint(0, 0)),
+                self.controls_panel.size(),
+            )
+            button_rect = QRect(
+                self.controls_button.mapToGlobal(QPoint(0, 0)),
+                self.controls_button.size(),
+            )
+
+            if not panel_rect.contains(click) and not button_rect.contains(click):
+                self.controls_button.setChecked(False)
+
+        return super().eventFilter(watched, event)
 
     def create_ui(self):
 
@@ -664,6 +713,7 @@ class MainWindow(QMainWindow):
         play_section = QWidget()
         view_section = QWidget()
         tool_section = QWidget()
+        self.tool_section = tool_section
         self.metadata_panel = MetadataPanel()
 
         view_play_section_layout.addWidget(tool_section)
@@ -693,17 +743,17 @@ class MainWindow(QMainWindow):
         self.map_button = QPushButton("Map")
         self.map_button.setObjectName("tool_buttons")
         self.map_button.setCheckable(True)
-        
-        self.options_button = QPushButton("Options")
-        self.options_button.setObjectName("tool_buttons")
-        self.options_button.setCheckable(True)
+        # self.controls_button = IconButtons(self.icons_path / "controls_icon.svg") - then remove next 2 lines
+        self.controls_button = QPushButton("Controls")
+        self.controls_button.setObjectName("tool_buttons")
+        self.controls_button.setCheckable(True)
 
         tool_section_layout.addWidget(empty_space, 8)
         tool_section_layout.addWidget(self.compare_button, 1)
         tool_section_layout.addWidget(self.metadata_button, 1)
         tool_section_layout.addWidget(self.loop_button, 1)
         tool_section_layout.addWidget(self.map_button, 1)
-        tool_section_layout.addWidget(self.options_button, 1)
+        tool_section_layout.addWidget(self.controls_button, 1)
 
 
         # view section Layout
@@ -756,3 +806,14 @@ class MainWindow(QMainWindow):
         play_section_layout.addWidget(self.progress_slider)
         play_section_layout.addSpacing(15)
         play_section_layout.addWidget(self.time_label)
+
+
+        # Window itself
+        # Keyboard shortcuts
+        self.controls_panel = ControlsPanel(self.centralWidget())
+        self.controls_button.toggled.connect(self.controls_toggled)
+        self.controls_shortcut = QShortcut(QKeySequence("Ctrl+C"), self)
+        self.controls_shortcut.activated.connect(self.controls_button.toggle)
+
+        # Click outside of controls panel to close it
+        QApplication.instance().installEventFilter(self)
