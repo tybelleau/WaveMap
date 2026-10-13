@@ -8,7 +8,7 @@ class MetadataPanel(QFrame):
         self.setObjectName("metadata_panel")
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(8)
 
         self.title_label = QLabel("Metadata")
