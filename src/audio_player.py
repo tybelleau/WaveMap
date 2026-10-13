@@ -12,7 +12,7 @@ class AudioPlayer(QObject):
 
     def play_file(self, file_path):
         self.player.stop()
-        self.player.setSource(file_path)
+        self.player.setSource(QUrl.fromLocalFile(str(file_path)))
         self.player.play()
 
     def release_source(self):

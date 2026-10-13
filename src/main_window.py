@@ -6,12 +6,14 @@ from file_system_manager import AudioFilterModel, is_supported_audio, AudioFileS
 from audio_player import AudioPlayer
 from waveform_widget import WaveformWidget
 from waveform_generator import WaveformGenerator
-from drag_drop import start_file_drag
+from drag_drop import start_file_drag, start_files_drag
 from filter_panel import FilterPanel, FilterButton
 from favorites_manager import FavoritesManager
 from metadata_panel import MetadataPanel
 from controls_panel import ControlsPanel
+from project_map_panel import ProjectMapPanel
 from pathlib import Path
+import shutil
 
 
 # Keyboard navigation
@@ -21,6 +23,7 @@ class AudioTreeView(QTreeView):
     favorite_pressed = Signal(object)
     loop_pressed = Signal()
     metadata_pressed = Signal()
+    map_pressed = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -78,6 +81,16 @@ class AudioTreeView(QTreeView):
         return Path(source_model.filePath(source_index))
 
     def keyPressEvent(self, event):
+        if event.modifiers() & (
+            Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier
+        ):
+            super().keyPressEvent(event)
+            return
+
+        if event.key() == Qt.Key_P:
+            self.map_pressed.emit()
+            return
+
         if event.key() == Qt.Key_M:
             self.metadata_pressed.emit()
             return
@@ -182,6 +195,81 @@ class IconButtons(QPushButton):
         super().leaveEvent(event)
 
 
+class MapButton(QPushButton):
+    def __init__(self, parent=None):
+        super().__init__("Map", parent)
+
+        self.setObjectName("tool_buttons")
+        self.setCheckable(True)
+
+        self.badge = QLabel(self)
+        self.badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.badge.hide()
+        self.badge.installEventFilter(self)
+
+        self.toggled.connect(self.apply_badge_style)
+
+    def eventFilter(self, watched, event):
+        if watched is self.badge and event.type() == QEvent.Type.MouseButtonPress:
+            self.toggle()
+            return True
+
+        return super().eventFilter(watched, event)
+
+    def set_count(self, count):
+        if count <= 0:
+            self.badge.hide()
+            return
+
+        self.badge.setText(str(count))
+        self.badge.adjustSize()
+        self.badge.setMinimumSize(14, 14)
+        self.apply_badge_style()
+        self.update_badge_position()
+        self.badge.show()
+        self.badge.raise_()
+
+    def apply_badge_style(self, _checked=False):
+        if self.badge.isHidden() and not self.badge.text():
+            return
+
+        if self.isChecked():
+            background = "#1b1b1b"
+            color = "#7ebcc4"
+        else:
+            background = "#7ebcc4"
+            color = "#1b1b1b"
+
+        self.badge.setStyleSheet(f"""
+            QLabel {{
+                background-color: {background};
+                color: {color};
+                border-radius: 7px;
+                font-size: 8px;
+                font-weight: bold;
+                padding: 0px 3px;
+            }}
+        """)
+
+    def update_badge_position(self):
+        parent = self.parentWidget()
+
+        if parent is None:
+            return
+
+        if self.badge.parentWidget() is not parent:
+            self.badge.setParent(parent)
+
+        self.badge.adjustSize()
+        local = QPoint(self.width() - self.badge.width() + 4, -3)
+        self.badge.move(self.mapToParent(local))
+        self.badge.raise_()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.update_badge_position()
+
+
 class MainWindow(QMainWindow):
     def __init__(self, database):
         super().__init__()
@@ -220,20 +308,16 @@ class MainWindow(QMainWindow):
         self.waveform_generator.format_ready.connect(self.audio_format_ready)
 
     def playback_state_changed(self, state):
-        if state == QMediaPlayer.PlaybackState.PlayingState:
-            self.play_button.setIcon(
-                QIcon(str(self.icons_path / "pause_icon.svg"))
-            )
+        playing = state == QMediaPlayer.PlaybackState.PlayingState
 
-        elif state == QMediaPlayer.PlaybackState.PausedState:
-            self.play_button.setIcon(
-                QIcon(str(self.icons_path / "play_icon.svg"))
-            )
+        if playing:
+            icon_name = "pause_icon.svg"
+        else:
+            icon_name = "play_icon.svg"
 
-        elif state == QMediaPlayer.PlaybackState.StoppedState:
-            self.play_button.setIcon(
-                QIcon(str(self.icons_path / "play_icon.svg"))
-            )
+        self.play_button.setIcon(
+            QIcon(str(self.icons_path / icon_name))
+        )
 
     def space_pressed(self, index):
         if self.current_file is not None:
@@ -267,6 +351,56 @@ class MainWindow(QMainWindow):
         self.audio_player.release_source()
         self.waveform_generator.release_source()
         start_file_drag(self.file_tree, file_path)
+
+    def toggle_current_file_in_map(self):
+        if not self.current_file:
+            return
+
+        self.project_map_panel.toggle_file(self.current_file)
+
+    def map_drag_requested(self, file_paths):
+        self.audio_player.release_source()
+        self.waveform_generator.release_source()
+        start_files_drag(self.project_map_panel, file_paths)
+
+    def export_map(self):
+        sources = self.project_map_panel.existing_paths()
+
+        if not sources:
+            return
+
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            "Export Project Map"
+        )
+
+        if not folder:
+            return
+
+        destination = Path(folder)
+
+        for source in sources:
+            self.copy_map_file(source, destination)
+
+    def copy_map_file(self, source, destination):
+        target = destination / source.name
+
+        if target.exists():
+            number = 2
+
+            while True:
+                candidate = destination / f"{source.stem} ({number}){source.suffix}"
+
+                if not candidate.exists():
+                    target = candidate
+                    break
+
+                number += 1
+
+        try:
+            shutil.copy2(source, target)
+        except OSError:
+            return
 
     def choose_folder(self):
         folder = QFileDialog.getExistingDirectory(
@@ -383,18 +517,22 @@ class MainWindow(QMainWindow):
         path = Path(file_path)
         if path.is_file() and is_supported_audio(path):
             self.current_file = file_path
-            self.file_name.setText(path.name)
-            self.time_label.setText("00:00 / 00:00")
-            self.waveform_widget.set_waveform([])
-            self.waveform_widget.set_playback_position(0, 0)
-            self.audio_player.play_file(file_path)
-            self.waveform_generator.generate(file_path)
-            self.metadata_panel.show_file(file_path)
-            self.metadata_changed()
+            self.show_playing_file(path)
         else:
             self.current_file = None
             self.file_name.setText("No file selected")
             self.metadata_panel.clear()
+
+    def show_playing_file(self, file_path):
+        path = Path(file_path)
+        self.file_name.setText(path.name)
+        self.time_label.setText("00:00 / 00:00")
+        self.waveform_widget.set_waveform([])
+        self.waveform_widget.set_playback_position(0, 0)
+        self.audio_player.play_file(str(path))
+        self.waveform_generator.generate(str(path))
+        self.metadata_panel.show_file(path)
+        self.metadata_changed()
 
     # Makes the progress slider advance with the audio
     def position_changed(self, position):
@@ -557,11 +695,9 @@ class MainWindow(QMainWindow):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        self.position_side_panels()
 
-        if hasattr(self, "controls_panel"):
-            self.position_controls_panel()
-
-    def position_controls_panel(self):
+    def side_panel_rect(self):
         area = self.centralWidget().rect()
         tool_bottom = self.tool_section.mapTo(
             self.centralWidget(),
@@ -570,19 +706,39 @@ class MainWindow(QMainWindow):
 
         margin = 8
         panel_width = int(area.width() / 3)
-        self.controls_panel.setGeometry(
+        return QRect(
             area.width() - panel_width - margin,
             tool_bottom,
             panel_width,
             area.height() - tool_bottom - margin,
         )
 
+    def position_side_panels(self):
+        if not hasattr(self, "controls_panel"):
+            return
+
+        geometry = self.side_panel_rect()
+        self.controls_panel.setGeometry(geometry)
+
+        if hasattr(self, "project_map_panel"):
+            self.project_map_panel.setGeometry(geometry)
+
     def controls_toggled(self, visible):
         if visible:
-            self.position_controls_panel()
+            self.map_button.setChecked(False)
+            self.position_side_panels()
             self.controls_panel.raise_()
 
         self.controls_panel.setVisible(visible)
+
+    def map_toggled(self, visible):
+        if visible:
+            self.controls_button.setChecked(False)
+            self.project_map_panel.refresh_presence()
+            self.position_side_panels()
+            self.project_map_panel.raise_()
+
+        self.project_map_panel.setVisible(visible)
 
     def eventFilter(self, watched, event):
         if (
@@ -740,9 +896,8 @@ class MainWindow(QMainWindow):
         self.loop_button.setCheckable(True)
         self.loop_button.toggled.connect(self.audio_player.set_looping)
         self.file_tree.loop_pressed.connect(self.loop_button.toggle)
-        self.map_button = QPushButton("Map")
-        self.map_button.setObjectName("tool_buttons")
-        self.map_button.setCheckable(True)
+        self.map_button = MapButton()
+        self.file_tree.map_pressed.connect(self.map_button.toggle)
         # self.controls_button = IconButtons(self.icons_path / "controls_icon.svg") - then remove next 2 lines
         self.controls_button = QPushButton("Controls")
         self.controls_button.setObjectName("tool_buttons")
@@ -814,6 +969,15 @@ class MainWindow(QMainWindow):
         self.controls_button.toggled.connect(self.controls_toggled)
         self.controls_shortcut = QShortcut(QKeySequence("Ctrl+C"), self)
         self.controls_shortcut.activated.connect(self.controls_button.toggle)
+
+        self.project_map_panel = ProjectMapPanel(self.centralWidget())
+        self.map_button.toggled.connect(self.map_toggled)
+        self.project_map_panel.export_requested.connect(self.export_map)
+        self.project_map_panel.drag_requested.connect(self.map_drag_requested)
+        self.project_map_panel.count_changed.connect(self.map_button.set_count)
+
+        self.map_toggle_shortcut = QShortcut(QKeySequence("Ctrl+P"), self)
+        self.map_toggle_shortcut.activated.connect(self.toggle_current_file_in_map)
 
         # Click outside of controls panel to close it
         QApplication.instance().installEventFilter(self)

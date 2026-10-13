@@ -9,8 +9,8 @@ SHORTCUTS = [
     ("L", "Toggle Loop: Loop the selected sound during playback."),
     ("M", "Toggle the metadata panel."),
     ("C", "Toggle compare view."),
-    ("P", "Toggle the project map panel."),
-    ("Ctrl + M", "Add or remove currently selected sound from the project Map."),
+    ("P", "Toggle the Project Map panel."),
+    ("Ctrl + P", "Add or remove the currently selected sound from the project Map."),
     ("Ctrl + E", "Reveal sound in File Explorer."),
     ("Ctrl + C", "Toggle the controls panel."),
 ]
