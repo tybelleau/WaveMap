@@ -30,7 +30,36 @@ class Database:
             )
         """)
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS durations (
+                file_path TEXT PRIMARY KEY,
+                duration_ms INTEGER NOT NULL
+            )
+        """)
+
         self.connection.commit()
+
+    def save_duration(self, file_path, duration_ms):
+        cursor = self.connection.cursor()
+
+        cursor.execute("""
+            INSERT OR REPLACE INTO durations (file_path, duration_ms)
+            VALUES (?, ?)
+            ON CONFLICT(file_path) DO UPDATE SET
+                duration_ms = excluded.duration_ms
+        """, (str(file_path), duration_ms))
+
+        self.connection.commit()
+
+    def load_durations(self):
+        cursor = self.connection.cursor()
+
+        cursor.execute("SELECT file_path, duration_ms FROM durations")
+
+        return {
+            Path(row[0]): row[1]
+            for row in cursor.fetchall()
+        }
 
     def close(self):
         self.connection.close()

@@ -140,6 +140,10 @@ class AudioFilterModel(QSortFilterProxyModel):
         self.durations[path] = duration_ms
         self.invalidateFilter()
 
+    def set_durations(self, durations):
+        self.durations = dict(durations)
+        self.invalidateFilter()
+
     def matches_length(self, duration_ms):
         duration_seconds = duration_ms / 1000
 

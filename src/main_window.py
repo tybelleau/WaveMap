@@ -410,7 +410,14 @@ class MainWindow(QMainWindow):
         if folder:
             self.current_root_folder = folder
             self.search_index.build(folder)
-            self.duration_reader.read_files(self.search_index.audio_files)
+            saved_durations = self.database.load_durations()
+            self.audio_filter_model.set_durations(saved_durations)
+            remaining = [
+                path
+                for path in self.search_index.audio_files
+                if path not in saved_durations
+            ]
+            self.duration_reader.read_files(remaining)
             self.audio_filter_model.set_search_root(folder)
             source_index = self.file_model.setRootPath(folder)
             proxy_index = self.audio_filter_model.mapFromSource(source_index)
@@ -575,6 +582,7 @@ class MainWindow(QMainWindow):
             return
         
         self.audio_filter_model.set_duration(file_path, duration_ms)
+        self.database.save_duration(file_path, duration_ms)
 
     def audio_format_ready(self, sample_rate, channel_count):
         if sample_rate > 0:
