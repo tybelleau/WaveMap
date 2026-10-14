@@ -93,6 +93,8 @@ class AudioFilterModel(QSortFilterProxyModel):
         self.matching_files = set()
         self.file_types = set()
         self.favorites_only = False
+        self.length_limits = []
+        self.durations = {}
 
         # Keep parent folders visible when a child matches.
         self.setRecursiveFilteringEnabled(True)
@@ -124,6 +126,46 @@ class AudioFilterModel(QSortFilterProxyModel):
     def set_favorites_only(self, enabled):
         self.favorites_only = enabled
         self.invalidateFilter()
+
+    def set_length_limits(self, limits):
+        self.length_limits = list(limits)
+        self.invalidateFilter()
+
+    def set_duration(self, file_path, duration_ms):
+        path = Path(file_path)
+
+        if self.durations.get(path) == duration_ms:
+            return
+        
+        self.durations[path] = duration_ms
+        self.invalidateFilter()
+
+    def set_durations(self, durations):
+        self.durations = dict(durations)
+        self.invalidateFilter()
+
+    def matches_length(self, duration_ms):
+        duration_seconds = duration_ms / 1000
+
+        for limit in self.length_limits:
+            if limit is None:
+                if duration_seconds > 10:
+                    return True
+            elif duration_seconds < limit:
+                return True
+
+        return False
+
+    def passes_length(self, path):
+        if not self.length_limits:
+            return True
+
+        duration_ms = self.durations.get(path)
+
+        if duration_ms is None:
+            return True
+
+        return self.matches_length(duration_ms)
 
     def set_search_root(self, folder_path):
         self.search_root = Path(folder_path)
@@ -164,6 +206,21 @@ class AudioFilterModel(QSortFilterProxyModel):
             if path.suffix.lower() not in self.file_types:
                 return False
 
+        # Apply length filtering.
+        if path.is_file() and not self.passes_length(path):
+            return False
+
+        if path.is_dir() and self.length_limits and self.search_index:
+            has_match = any(
+                audio_path.is_relative_to(path)
+                and self.passes_length(audio_path)
+                for audio_path in self.search_index.audio_files
+                if not self.file_types or audio_path.suffix.lower() in self.file_types
+            )
+
+            if not has_match:
+                return False
+
         # Apply favorites filtering.
         if self.favorites_only:
             if path.is_file():
@@ -193,6 +250,13 @@ class AudioFilterModel(QSortFilterProxyModel):
                         if favorite_path in self.matching_files
                     ]
 
+                if self.length_limits:
+                    matching_favorites = [
+                        favorite_path
+                        for favorite_path in matching_favorites
+                        if self.passes_length(favorite_path)
+                    ]
+
                 if not matching_favorites:
                     return False
 
@@ -204,6 +268,7 @@ class AudioFilterModel(QSortFilterProxyModel):
             if path.is_dir():
                 return any(
                     match_path.is_relative_to(path)
+                    and self.passes_length(match_path)
                     for match_path in self.matching_files
                 )
 

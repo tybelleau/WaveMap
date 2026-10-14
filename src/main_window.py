@@ -1,13 +1,13 @@
 from pathlib import Path
 import shutil
 
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog, QApplication, QComboBox
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog, QApplication, QComboBox, QProgressBar
 from PySide6.QtCore import Qt, QDir, Signal, QSize, QSettings, QTimer, QEvent, QPoint, QRect
 from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtMultimedia import QMediaPlayer, QMediaMetaData
 
 from file_system_manager import AudioFilterModel, is_supported_audio, AudioFileSystemModel, AudioSearchIndex
-from audio_player import AudioPlayer
+from audio_player import AudioPlayer, DurationReader
 from waveform_widget import WaveformWidget
 from waveform_generator import WaveformGenerator
 from drag_drop import start_file_drag, start_files_drag
@@ -291,6 +291,7 @@ class MainWindow(QMainWindow):
 
         self.audio_player = AudioPlayer()
         self.waveform_generator = WaveformGenerator()
+        self.duration_reader = DurationReader()
 
         self.create_ui()
 
@@ -304,6 +305,8 @@ class MainWindow(QMainWindow):
         self.audio_player.player.metaDataChanged.connect(self.metadata_changed)
         self.waveform_generator.waveform_ready.connect(self.waveform_ready)
         self.waveform_generator.format_ready.connect(self.audio_format_ready)
+        self.duration_reader.duration_ready.connect(self.duration_loaded)
+        self.duration_reader.progress_changed.connect(self.indexing_progress)
 
     def playback_state_changed(self, state):
         playing = state == QMediaPlayer.PlaybackState.PlayingState
@@ -408,6 +411,14 @@ class MainWindow(QMainWindow):
         if folder:
             self.current_root_folder = folder
             self.search_index.build(folder)
+            saved_durations = self.database.load_durations()
+            self.audio_filter_model.set_durations(saved_durations)
+            remaining = [
+                path
+                for path in self.search_index.audio_files
+                if path not in saved_durations
+            ]
+            self.duration_reader.read_files(remaining)
             self.audio_filter_model.set_search_root(folder)
             source_index = self.file_model.setRootPath(folder)
             proxy_index = self.audio_filter_model.mapFromSource(source_index)
@@ -561,6 +572,28 @@ class MainWindow(QMainWindow):
         if duration > 0:
             self.metadata_panel.set_value("Duration", self.format_time(duration))
 
+            if self.current_file:
+                self.audio_filter_model.set_duration(
+                    self.current_file,
+                    duration
+                )
+
+    def duration_loaded(self, file_path, duration_ms):
+        if duration_ms <= 0:
+            return
+        
+        self.audio_filter_model.set_duration(file_path, duration_ms)
+        self.database.save_duration(file_path, duration_ms)
+
+    def indexing_progress(self, completed, total):
+        if total <= 0 or completed >= total:
+            self.index_progress.hide()
+            return
+
+        self.index_progress.setRange(0, total)
+        self.index_progress.setValue(completed)
+        self.index_progress.show()
+
     def audio_format_ready(self, sample_rate, channel_count):
         if sample_rate > 0:
             rate_text = f"{sample_rate} Hz"
@@ -677,6 +710,10 @@ class MainWindow(QMainWindow):
     def filters_changed(self, filters):
         self.audio_filter_model.set_file_types(
             filters["file_type"]
+        )
+
+        self.audio_filter_model.set_length_limits(
+            filters["length"]
         )
 
         favorites_only = bool(filters["favorites"])
@@ -801,6 +838,13 @@ class MainWindow(QMainWindow):
         file_section_layout.addWidget(search_bar_container)
         file_section_layout.addWidget(filter_controls)
         file_section_layout.addWidget(self.file_tree)
+
+        self.index_progress = QProgressBar()
+        self.index_progress.setObjectName("index_progress")
+        self.index_progress.setTextVisible(False)
+        self.index_progress.setFixedHeight(6)
+        self.index_progress.hide()
+        file_section_layout.addWidget(self.index_progress)
 
 
         # search bar container layout

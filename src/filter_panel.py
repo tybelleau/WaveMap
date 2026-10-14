@@ -169,9 +169,12 @@ class FilterPanel(QFrame):
                 "}"
             )
 
-            checkbox.toggled.connect(
-                self.emit_filters_changed
-            )
+            if filter_key == "length":
+                checkbox.toggled.connect(self.length_filter_toggled)
+            else:
+                checkbox.toggled.connect(
+                    self.emit_filters_changed
+                )
 
             self.filters[filter_key][value] = checkbox
             row_index = index // columns
@@ -187,6 +190,18 @@ class FilterPanel(QFrame):
         separator.setObjectName("filter_separator")
 
         self.layout.addWidget(separator)
+    
+    def length_filter_toggled(self, checked):
+        if checked:
+            selected = self.sender()
+
+            for checkbox in self.filters["length"].values():
+                if checkbox is not selected:
+                    checkbox.blockSignals(True)
+                    checkbox.setChecked(False)
+                    checkbox.blockSignals(False)
+
+        self.emit_filters_changed()
 
     def emit_filters_changed(self):
         active_filters = {
