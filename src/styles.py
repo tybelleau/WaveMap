@@ -66,6 +66,18 @@ QTreeView::item:selected {
     border-radius: 4px;
 }
 
+QProgressBar#index_progress {
+    background-color: #1b1b1b;
+    border: none;
+    border-radius: 3px;
+    margin: 6px 6px 2px 6px;
+}
+
+QProgressBar#index_progress::chunk {
+    background-color: #7ebcc4;
+    border-radius: 3px;
+}
+
 
 /* Tool Buttons */
 

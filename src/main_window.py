@@ -1,7 +1,7 @@
 from pathlib import Path
 import shutil
 
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog, QApplication, QComboBox
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog, QApplication, QComboBox, QProgressBar
 from PySide6.QtCore import Qt, QDir, Signal, QSize, QSettings, QTimer, QEvent, QPoint, QRect
 from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtMultimedia import QMediaPlayer, QMediaMetaData
@@ -306,6 +306,7 @@ class MainWindow(QMainWindow):
         self.waveform_generator.waveform_ready.connect(self.waveform_ready)
         self.waveform_generator.format_ready.connect(self.audio_format_ready)
         self.duration_reader.duration_ready.connect(self.duration_loaded)
+        self.duration_reader.progress_changed.connect(self.indexing_progress)
 
     def playback_state_changed(self, state):
         playing = state == QMediaPlayer.PlaybackState.PlayingState
@@ -584,6 +585,15 @@ class MainWindow(QMainWindow):
         self.audio_filter_model.set_duration(file_path, duration_ms)
         self.database.save_duration(file_path, duration_ms)
 
+    def indexing_progress(self, completed, total):
+        if total <= 0 or completed >= total:
+            self.index_progress.hide()
+            return
+
+        self.index_progress.setRange(0, total)
+        self.index_progress.setValue(completed)
+        self.index_progress.show()
+
     def audio_format_ready(self, sample_rate, channel_count):
         if sample_rate > 0:
             rate_text = f"{sample_rate} Hz"
@@ -828,6 +838,13 @@ class MainWindow(QMainWindow):
         file_section_layout.addWidget(search_bar_container)
         file_section_layout.addWidget(filter_controls)
         file_section_layout.addWidget(self.file_tree)
+
+        self.index_progress = QProgressBar()
+        self.index_progress.setObjectName("index_progress")
+        self.index_progress.setTextVisible(False)
+        self.index_progress.setFixedHeight(6)
+        self.index_progress.hide()
+        file_section_layout.addWidget(self.index_progress)
 
 
         # search bar container layout

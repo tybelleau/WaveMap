@@ -46,6 +46,7 @@ class AudioPlayer(QObject):
 
 class DurationReader(QObject):
     duration_ready = Signal(str, int)
+    progress_changed = Signal(int, int)
 
     def __init__(self):
         super().__init__()
@@ -68,6 +69,7 @@ class DurationReader(QObject):
         self.files = list(file_paths)
         self.index = 0
         self.file_path = None
+        self.progress_changed.emit(0, len(self.files))
         self.read_next()
 
     def read_next(self):
@@ -108,4 +110,5 @@ class DurationReader(QObject):
         path = self.file_path
         self.file_path = None
         self.duration_ready.emit(path, duration)
+        self.progress_changed.emit(self.index, len(self.files))
         QTimer.singleShot(0, self.read_next)
