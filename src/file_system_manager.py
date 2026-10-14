@@ -152,6 +152,17 @@ class AudioFilterModel(QSortFilterProxyModel):
 
         return False
 
+    def passes_length(self, path):
+        if not self.length_limits:
+            return True
+
+        duration_ms = self.durations.get(path)
+
+        if duration_ms is None:
+            return True
+
+        return self.matches_length(duration_ms)
+
     def set_search_root(self, folder_path):
         self.search_root = Path(folder_path)
         self.invalidateFilter()
@@ -192,10 +203,18 @@ class AudioFilterModel(QSortFilterProxyModel):
                 return False
 
         # Apply length filtering.
-        if path.is_file() and self.length_limits:
-            duration_ms = self.durations.get(path)
+        if path.is_file() and not self.passes_length(path):
+            return False
 
-            if duration_ms is not None and not self.matches_length(duration_ms):
+        if path.is_dir() and self.length_limits and self.search_index:
+            has_match = any(
+                audio_path.is_relative_to(path)
+                and self.passes_length(audio_path)
+                for audio_path in self.search_index.audio_files
+                if not self.file_types or audio_path.suffix.lower() in self.file_types
+            )
+
+            if not has_match:
                 return False
 
         # Apply favorites filtering.
@@ -227,6 +246,13 @@ class AudioFilterModel(QSortFilterProxyModel):
                         if favorite_path in self.matching_files
                     ]
 
+                if self.length_limits:
+                    matching_favorites = [
+                        favorite_path
+                        for favorite_path in matching_favorites
+                        if self.passes_length(favorite_path)
+                    ]
+
                 if not matching_favorites:
                     return False
 
@@ -238,6 +264,7 @@ class AudioFilterModel(QSortFilterProxyModel):
             if path.is_dir():
                 return any(
                     match_path.is_relative_to(path)
+                    and self.passes_length(match_path)
                     for match_path in self.matching_files
                 )
 
