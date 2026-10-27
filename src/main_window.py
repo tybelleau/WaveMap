@@ -1,5 +1,6 @@
 from pathlib import Path
 import shutil
+import subprocess
 
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog, QApplication, QComboBox, QProgressBar
 from PySide6.QtCore import Qt, QDir, Signal, QSize, QSettings, QTimer, QEvent, QPoint, QRect
@@ -358,6 +359,20 @@ class MainWindow(QMainWindow):
             return
 
         self.project_map_panel.toggle_file(self.current_file)
+
+    def reveal_current_file(self):
+        if not self.current_file:
+            return
+        
+        path = Path(self.current_file)
+
+        if not path.parent.exists():
+            return
+
+        try:
+            subprocess.Popen(f'explorer /select,"{path}"')
+        except OSError:
+            return
 
     def map_drag_requested(self, file_paths):
         self.audio_player.release_source()
@@ -1000,3 +1015,6 @@ class MainWindow(QMainWindow):
 
         self.map_toggle_shortcut = QShortcut(QKeySequence("Ctrl+P"), self)
         self.map_toggle_shortcut.activated.connect(self.toggle_current_file_in_map)
+
+        self.reveal_shortcut = QShortcut(QKeySequence("Ctrl+E"), self)
+        self.reveal_shortcut.activated.connect(self.reveal_current_file)
