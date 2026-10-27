@@ -2,7 +2,7 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog, QApplication, QComboBox, QProgressBar, QMenu
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog, QApplication, QComboBox, QProgressBar, QMenu, QMessageBox
 from PySide6.QtCore import Qt, QDir, Signal, QSize, QSettings, QTimer, QEvent, QPoint, QRect
 from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtMultimedia import QMediaPlayer, QMediaMetaData
@@ -377,6 +377,20 @@ class MainWindow(QMainWindow):
         except OSError:
             return
 
+    def copy_file_path(self, file_path=None):
+        if file_path is None:
+            file_path = self.current_file
+
+        if not file_path:
+            return
+
+        path = Path(file_path)
+
+        if not path.exists():
+            return
+
+        QApplication.clipboard().setText(str(path))
+
     def show_file_context_menu(self, position):
         index = self.file_tree.indexAt(position)
 
@@ -393,8 +407,15 @@ class MainWindow(QMainWindow):
         reveal_action.triggered.connect(
             lambda: self.reveal_current_file(file_path)
         )
-        menu.exec(self.file_tree.viewport().mapToGlobal(position))
 
+        copy_path_action = menu.addAction("Copy file path")
+        copy_path_action.triggered.connect(
+            lambda: self.copy_file_path(file_path)
+        
+        )
+
+        menu.exec(self.file_tree.viewport().mapToGlobal(position))
+        
     def map_drag_requested(self, file_paths):
         self.audio_player.release_source()
         self.waveform_generator.release_source()
