@@ -2,7 +2,7 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog, QApplication, QComboBox, QProgressBar
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog, QApplication, QComboBox, QProgressBar, QMenu
 from PySide6.QtCore import Qt, QDir, Signal, QSize, QSettings, QTimer, QEvent, QPoint, QRect
 from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtMultimedia import QMediaPlayer, QMediaMetaData
@@ -360,11 +360,14 @@ class MainWindow(QMainWindow):
 
         self.project_map_panel.toggle_file(self.current_file)
 
-    def reveal_current_file(self):
-        if not self.current_file:
+    def reveal_current_file(self, file_path=None):
+        if file_path is None:
+            file_path = self.current_file
+        
+        if not file_path:
             return
         
-        path = Path(self.current_file)
+        path = Path(file_path)
 
         if not path.parent.exists():
             return
@@ -373,6 +376,24 @@ class MainWindow(QMainWindow):
             subprocess.Popen(f'explorer /select,"{path}"')
         except OSError:
             return
+
+    def show_file_context_menu(self, position):
+        index = self.file_tree.indexAt(position)
+
+        if not index.isValid():
+            return
+
+        file_path = self.file_tree.get_file_path(index)
+
+        if file_path is None or not is_supported_audio(file_path):
+            return
+
+        menu = QMenu(self.file_tree)
+        reveal_action = menu.addAction("Show in Explorer")
+        reveal_action.triggered.connect(
+            lambda: self.reveal_current_file(file_path)
+        )
+        menu.exec(self.file_tree.viewport().mapToGlobal(position))
 
     def map_drag_requested(self, file_paths):
         self.audio_player.release_source()
@@ -841,6 +862,8 @@ class MainWindow(QMainWindow):
         self.file_tree.setColumnHidden(3, True)
         self.file_tree.header().setStretchLastSection(True)
         self.file_tree.selectionModel().currentChanged.connect(self.file_selected)
+        self.file_tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.file_tree.customContextMenuRequested.connect(self.show_file_context_menu)
         self.file_model.setFilter(
               QDir.AllDirs |
               QDir.NoDotAndDotDot |
