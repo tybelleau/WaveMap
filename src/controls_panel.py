@@ -11,7 +11,7 @@ SHORTCUTS = [
     ("C", "Toggle compare view."),
     ("P", "Toggle the Project Map panel."),
     ("Ctrl + P", "Add or remove the currently selected sound from the project Map."),
-    ("Ctrl + E", "Reveal sound in File Explorer."),
+    ("Ctrl + E", "Show sound in File Explorer."),
     ("Ctrl + C", "Toggle the controls panel."),
 ]
 
