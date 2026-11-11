@@ -3,7 +3,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal, QSize, QEvent
 from PySide6.QtGui import QCursor, QIcon
-from PySide6.QtWidgets import QApplication, QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget, QMenu
 
 from file_system_manager import is_supported_audio
 
@@ -24,6 +24,7 @@ class MapRow(QWidget):
         self.trash_icon = QIcon(str(trash_icon))
 
         self.setMouseTracking(True)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setFixedHeight(self.fontMetrics().height() + 10)
 
@@ -154,6 +155,7 @@ class ProjectMapPanel(QFrame):
     export_requested = Signal()
     drag_requested = Signal(list)
     count_changed = Signal(int)
+    show_in_tree_requested = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -320,6 +322,12 @@ class ProjectMapPanel(QFrame):
             row.hover_changed.connect(self.refresh_row_hover)
             row.remove_requested.connect(lambda index=len(self.rows): self.remove_at(index))
             row.drag_requested.connect(self.start_drag)
+            row.customContextMenuRequested.connect(
+                lambda position, index=len(self.rows), row=row: self.show_row_menu(
+                    index,
+                    row.mapToGlobal(position),
+                )
+            )
             self.row_layout.insertWidget(self.row_layout.count() - 1, row)
             self.rows.append(row)
 
@@ -343,3 +351,13 @@ class ProjectMapPanel(QFrame):
 
         if paths:
             self.drag_requested.emit(paths)
+
+    def show_row_menu(self, index, position):
+        if not 0 <= index < len(self.paths):
+            return
+
+        path = self.paths[index]
+        menu = QMenu(self)
+        show_action = menu.addAction("Show in file tree")
+        show_action.triggered.connect(lambda: self.show_in_tree_requested.emit(str(path)))
+        menu.exec(position)
