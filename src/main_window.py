@@ -8,7 +8,7 @@ from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtMultimedia import QMediaPlayer, QMediaMetaData
 
 from file_system_manager import AudioFilterModel, is_supported_audio, AudioFileSystemModel, AudioSearchIndex
-from audio_player import AudioPlayer, DurationReader
+from audio_player import AudioPlayer, DurationReader, StartupChord
 from waveform_widget import WaveformWidget
 from waveform_generator import WaveformGenerator
 from drag_drop import start_file_drag, start_files_drag
@@ -293,6 +293,8 @@ class MainWindow(QMainWindow):
         self.audio_player = AudioPlayer()
         self.waveform_generator = WaveformGenerator()
         self.duration_reader = DurationReader()
+        self.startup_chord = StartupChord()
+        self.startup_chord_played = False
 
         self.create_ui()
 
@@ -308,6 +310,15 @@ class MainWindow(QMainWindow):
         self.waveform_generator.format_ready.connect(self.audio_format_ready)
         self.duration_reader.duration_ready.connect(self.duration_loaded)
         self.duration_reader.progress_changed.connect(self.indexing_progress)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+
+        if self.startup_chord_played:
+            return
+
+        self.startup_chord_played = True
+        QTimer.singleShot(0, self.startup_chord.play)
 
     def playback_state_changed(self, state):
         playing = state == QMediaPlayer.PlaybackState.PlayingState
