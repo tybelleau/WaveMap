@@ -421,6 +421,38 @@ class MainWindow(QMainWindow):
         self.waveform_generator.release_source()
         start_files_drag(self.project_map_panel, file_paths)
 
+    def show_map_file_in_tree(self, file_path):
+        if not file_path:
+            return
+
+        self.search_bar.setEditText("")
+        self.search_timer.stop()
+        self.filter_panel.clear_filters()
+        self.perform_search()
+
+        source_index = self.file_model.index(file_path)
+
+        if not source_index.isValid():
+            return
+
+        source_parent = source_index.parent()
+
+        while source_parent.isValid():
+            proxy_parent = self.audio_filter_model.mapFromSource(source_parent)
+
+            if proxy_parent.isValid():
+                self.file_tree.expand(proxy_parent)
+
+            source_parent = source_parent.parent()
+
+        proxy_index = self.audio_filter_model.mapFromSource(source_index)
+
+        if not proxy_index.isValid():
+            return
+
+        self.file_tree.setCurrentIndex(proxy_index)
+        self.file_tree.scrollTo(proxy_index)
+
     def export_map(self):
         sources = self.project_map_panel.existing_paths()
 
@@ -1056,6 +1088,7 @@ class MainWindow(QMainWindow):
         self.project_map_panel.export_requested.connect(self.export_map)
         self.project_map_panel.drag_requested.connect(self.map_drag_requested)
         self.project_map_panel.count_changed.connect(self.map_button.set_count)
+        self.project_map_panel.show_in_tree_requested.connect(self.show_map_file_in_tree)
 
         self.map_toggle_shortcut = QShortcut(QKeySequence("Ctrl+P"), self)
         self.map_toggle_shortcut.activated.connect(self.toggle_current_file_in_map)
