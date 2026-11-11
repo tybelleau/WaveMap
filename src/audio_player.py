@@ -43,6 +43,33 @@ class AudioPlayer(QObject):
     def seek(self, position):
         self.player.setPosition(position)
 
+class StartupChord(QObject):
+    def __init__(self):
+        super().__init__()
+
+        self.audio_output = QAudioOutput()
+        self.audio_output.setVolume(0.4)
+
+        self.player = QMediaPlayer()
+        self.player.setAudioOutput(self.audio_output)
+        self.player.setLoops(QMediaPlayer.Loops.Once)
+
+        sound_path = (
+            Path(__file__).resolve().parent.parent
+            / "assets"
+            / "sounds"
+            / "wavemap_opening_chord.wav"
+        )
+        self.player.setSource(QUrl.fromLocalFile(str(sound_path)))
+        self.started = False
+
+    def play(self):
+        if self.started:
+            return
+
+        self.started = True
+        self.player.play()
+
 
 class DurationReader(QObject):
     duration_ready = Signal(str, int)
