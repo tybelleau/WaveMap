@@ -4,7 +4,7 @@ import subprocess
 
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QTreeView, QMainWindow, QSlider, QVBoxLayout, QWidget, QPushButton, QFileDialog, QApplication, QComboBox, QProgressBar, QMenu, QMessageBox
 from PySide6.QtCore import Qt, QDir, Signal, QSize, QSettings, QTimer, QEvent, QPoint, QRect
-from PySide6.QtGui import QIcon, QKeySequence, QShortcut
+from PySide6.QtGui import QIcon, QKeyEvent, QKeySequence, QShortcut
 from PySide6.QtMultimedia import QMediaPlayer, QMediaMetaData
 
 from file_system_manager import AudioFilterModel, is_supported_audio, AudioFileSystemModel, AudioSearchIndex
@@ -21,12 +21,7 @@ from project_map_panel import ProjectMapPanel
 
 # Keyboard navigation
 class AudioTreeView(QTreeView):
-    space_pressed = Signal(object)
     drag_request = Signal(object)
-    favorite_pressed = Signal(object)
-    loop_pressed = Signal()
-    metadata_pressed = Signal()
-    map_pressed = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -82,52 +77,6 @@ class AudioTreeView(QTreeView):
             return None
 
         return Path(source_model.filePath(source_index))
-
-    def keyPressEvent(self, event):
-        if event.modifiers() & (
-            Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier
-        ):
-            super().keyPressEvent(event)
-            return
-
-        if event.key() == Qt.Key_P:
-            self.map_pressed.emit()
-            return
-
-        if event.key() == Qt.Key_M:
-            self.metadata_pressed.emit()
-            return
-
-        if event.key() == Qt.Key_L:
-            self.loop_pressed.emit()
-            return
-
-        if event.key() == Qt.Key_F:
-            current_index = self.currentIndex()
-
-            if current_index.isValid():
-                self.favorite_pressed.emit(current_index)
-
-            return
-
-        if event.key() == Qt.Key_Space:
-            current_index = self.currentIndex()
-
-            source_index = self.model().mapToSource(current_index)
-            is_dir = self.model().sourceModel().isDir(source_index)
-
-            if is_dir:
-                if self.isExpanded(current_index):
-                    self.collapse(current_index)
-                else:
-                    self.expand(current_index)
-
-                return
-
-            self.space_pressed.emit(current_index)
-            return
-
-        super().keyPressEvent(event)
 
     def move_next(self):
         current_index = self.currentIndex()
@@ -332,12 +281,26 @@ class MainWindow(QMainWindow):
             QIcon(str(self.icons_path / icon_name))
         )
 
-    def space_pressed(self, index):
+    def space_pressed(self):
+        current_index = self.file_tree.currentIndex()
+
+        if current_index.isValid():
+            source_index = self.file_tree.model().mapToSource(current_index)
+            is_dir = self.file_tree.model().sourceModel().isDir(source_index)
+
+            if is_dir:
+                if self.file_tree.isExpanded(current_index):
+                    self.file_tree.collapse(current_index)
+                else:
+                    self.file_tree.expand(current_index)
+
+                return
+
         if self.current_file is not None:
             self.audio_player.toggle_playback()
 
-    def favorite_pressed(self, index):
-        file_path = self.file_tree.get_file_path(index)
+    def favorite_pressed(self):
+        file_path = self.file_tree.get_file_path(self.file_tree.currentIndex())
 
         if file_path is None:
             return
@@ -908,10 +871,6 @@ class MainWindow(QMainWindow):
         filter_controls = QWidget()
         filter_controls.setObjectName("filter_controls")
         self.file_tree = AudioTreeView()
-
-        # Keyboard Shortcuts
-        self.file_tree.space_pressed.connect(self.space_pressed)
-        self.file_tree.favorite_pressed.connect(self.favorite_pressed)
         self.file_tree.drag_request.connect(self.file_drag_requested)
 
         self.file_model = AudioFileSystemModel(self.favorites_manager)
@@ -1014,14 +973,11 @@ class MainWindow(QMainWindow):
         self.metadata_button.setObjectName("tool_buttons")
         self.metadata_button.setCheckable(True)
         self.metadata_button.toggled.connect(self.metadata_panel.setVisible)
-        self.file_tree.metadata_pressed.connect(self.metadata_button.toggle)
         self.loop_button = QPushButton("Loop")
         self.loop_button.setObjectName("tool_buttons")
         self.loop_button.setCheckable(True)
         self.loop_button.toggled.connect(self.audio_player.set_looping)
-        self.file_tree.loop_pressed.connect(self.loop_button.toggle)
         self.map_button = MapButton()
-        self.file_tree.map_pressed.connect(self.map_button.toggle)
         # self.controls_button = IconButtons(self.icons_path / "controls_icon.svg") - then remove next 2 lines
         self.controls_button = QPushButton("Controls")
         self.controls_button.setObjectName("tool_buttons")
@@ -1088,11 +1044,8 @@ class MainWindow(QMainWindow):
 
 
         # Window itself
-        # Keyboard shortcuts
         self.controls_panel = ControlsPanel(self.centralWidget())
         self.controls_button.toggled.connect(self.controls_toggled)
-        self.controls_shortcut = QShortcut(QKeySequence("Ctrl+C"), self)
-        self.controls_shortcut.activated.connect(self.controls_button.toggle)
 
         self.project_map_panel = ProjectMapPanel(self.centralWidget())
         self.map_button.toggled.connect(self.map_toggled)
@@ -1101,8 +1054,59 @@ class MainWindow(QMainWindow):
         self.project_map_panel.count_changed.connect(self.map_button.set_count)
         self.project_map_panel.show_in_tree_requested.connect(self.show_map_file_in_tree)
 
-        self.map_toggle_shortcut = QShortcut(QKeySequence("Ctrl+P"), self)
-        self.map_toggle_shortcut.activated.connect(self.toggle_current_file_in_map)
+        self.setup_shortcuts()
 
-        self.reveal_shortcut = QShortcut(QKeySequence("Ctrl+E"), self)
-        self.reveal_shortcut.activated.connect(self.reveal_current_file)
+    def add_window_shortcut(self, sequence, slot):
+        shortcut = QShortcut(QKeySequence(sequence), self)
+        shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        shortcut.activated.connect(slot)
+        return shortcut
+
+    def setup_shortcuts(self):
+        # These belong to the window, so they keep working after a button
+        # or panel takes focus away from the file tree. A text field still
+        # receives the key, because it accepts the shortcut override.
+        self.add_window_shortcut("Space", self.space_pressed)
+        self.add_window_shortcut("F", self.favorite_pressed)
+        self.add_window_shortcut("L", self.loop_button.toggle)
+        self.add_window_shortcut("M", self.metadata_button.toggle)
+        self.add_window_shortcut("C", self.compare_button.toggle)
+        self.add_window_shortcut("P", self.map_button.toggle)
+        self.add_window_shortcut("Ctrl+P", self.toggle_current_file_in_map)
+        self.add_window_shortcut("Ctrl+E", self.reveal_current_file)
+        self.add_window_shortcut("Ctrl+C", self.controls_button.toggle)
+
+        self.up_shortcut = self.add_window_shortcut(
+            "Up", lambda: self.forward_tree_key(Qt.Key_Up)
+        )
+        self.down_shortcut = self.add_window_shortcut(
+            "Down", lambda: self.forward_tree_key(Qt.Key_Down)
+        )
+        self.left_shortcut = self.add_window_shortcut(
+            "Left", lambda: self.forward_tree_key(Qt.Key_Left)
+        )
+        self.right_shortcut = self.add_window_shortcut(
+            "Right", lambda: self.forward_tree_key(Qt.Key_Right)
+        )
+
+        QApplication.instance().focusChanged.connect(
+            self.update_navigation_shortcuts
+        )
+
+    def forward_tree_key(self, key):
+        # Call the tree directly. Sending the key through the application
+        # would match this same shortcut again and recurse.
+        self.file_tree.keyPressEvent(
+            QKeyEvent(QEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier)
+        )
+
+    def update_navigation_shortcuts(self, _old, now):
+        search_focused = (
+            now is self.search_bar or now is self.search_bar.lineEdit()
+        )
+        self.up_shortcut.setEnabled(not search_focused)
+        self.down_shortcut.setEnabled(not search_focused)
+
+        # Left and right move the playhead while the slider has focus.
+        self.left_shortcut.setEnabled(now is not self.progress_slider)
+        self.right_shortcut.setEnabled(now is not self.progress_slider)
