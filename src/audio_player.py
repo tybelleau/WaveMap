@@ -48,7 +48,7 @@ class StartupChord(QObject):
         super().__init__()
 
         self.audio_output = QAudioOutput()
-        self.audio_output.setVolume(0.4)
+        self.audio_output.setVolume(0.1)
 
         self.player = QMediaPlayer()
         self.player.setAudioOutput(self.audio_output)
